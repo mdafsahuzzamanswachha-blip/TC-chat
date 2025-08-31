@@ -18,7 +18,7 @@ button{margin-left:10px;padding:10px 15px;border:none;border-radius:10px;backgro
 #toggleDrawer{position:absolute;top:10px;left:10px;padding:10px;background:#25d366;color:#fff;border:none;border-radius:5px;cursor:pointer;}
 #callOverlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);justify-content:center;align-items:center;flex-direction:column;z-index:200;}
 #callOverlay video{width:45%;margin:10px;border-radius:10px;border:2px solid #fff;}
-#bottomHangupBtn{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);padding:15px 30px;background:red;color:white;border:none;border-radius:10px;cursor:pointer;z-index:300;}
+#bottomHangupBtn{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);padding:15px 30px;background:red;color:white;border:none;border-radius:10px;cursor:pointer;z-index:300;display:none;}
 </style>
 </head>
 <body>
@@ -73,7 +73,7 @@ var bottomHangupBtn = document.getElementById('bottomHangupBtn');
 
 toggleDrawerBtn.onclick = ()=>drawer.classList.toggle('open');
 
-// Set nickname
+// Nickname
 nicknameInput.onchange = ()=>{
     socket.emit('set_nickname', nicknameInput.value || "Anonymous");
 };
@@ -95,7 +95,7 @@ function sendMessage(){
     imgInput.value='';
 }
 
-// Enter/Shift+Enter
+// Enter / Shift+Enter
 msgInput.addEventListener("keydown", function(e){
     if(e.key==="Enter" && !e.shiftKey){e.preventDefault();sendMessage();}
 });
@@ -110,20 +110,22 @@ socket.on('message', function(data){
     chat.scrollTop = chat.scrollHeight;
 });
 
-// WebRTC call
+// WebRTC
 var pc;
+var localStream;
+
 async function startCall(){
     callOverlay.style.display="flex";
+    bottomHangupBtn.style.display="block"; // show only when call starts
+
     pc = new RTCPeerConnection();
     pc.ontrack = e=>remoteVideo.srcObject=e.streams[0];
 
-    let stream = await navigator.mediaDevices.getUserMedia({video:true,audio:true});
-    localVideo.srcObject=stream;
-    stream.getTracks().forEach(track=>pc.addTrack(track,stream));
+    localStream = await navigator.mediaDevices.getUserMedia({video:true,audio:true});
+    localVideo.srcObject = localStream;
+    localStream.getTracks().forEach(track=>pc.addTrack(track, localStream));
 
-    pc.onicecandidate = e=>{
-        if(e.candidate) socket.emit("webrtc_ice_candidate", e.candidate);
-    };
+    pc.onicecandidate = e=>{ if(e.candidate) socket.emit("webrtc_ice_candidate", e.candidate); };
 
     var offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
@@ -133,21 +135,30 @@ async function startCall(){
 // Hang Up
 bottomHangupBtn.onclick = ()=>{
     callOverlay.style.display="none";
+    bottomHangupBtn.style.display="none";
+
     if(pc){
         pc.getSenders().forEach(s=>pc.removeTrack(s));
         pc.close();
         pc = null;
     }
+    if(localStream){
+        localStream.getTracks().forEach(track=>track.stop());
+        localStream = null;
+    }
 };
 
 // WebRTC signaling
 socket.on("webrtc_offer", async offer=>{
-    if(!pc){pc = new RTCPeerConnection(); callOverlay.style.display="flex";}
+    if(!pc){pc = new RTCPeerConnection(); callOverlay.style.display="flex"; bottomHangupBtn.style.display="block";}
     pc.ontrack = e=>remoteVideo.srcObject=e.streams[0];
-    let stream = await navigator.mediaDevices.getUserMedia({video:true,audio:true});
-    localVideo.srcObject=stream;
-    stream.getTracks().forEach(track=>pc.addTrack(track,stream));
+
+    localStream = await navigator.mediaDevices.getUserMedia({video:true,audio:true});
+    localVideo.srcObject = localStream;
+    localStream.getTracks().forEach(track=>pc.addTrack(track,localStream));
+
     pc.onicecandidate = e=>{ if(e.candidate) socket.emit("webrtc_ice_candidate", e.candidate); };
+
     await pc.setRemoteDescription(offer);
     var answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
@@ -158,9 +169,7 @@ socket.on("webrtc_answer", async answer=>{ if(pc) await pc.setRemoteDescription(
 socket.on("webrtc_ice_candidate", async candidate=>{ if(pc) await pc.addIceCandidate(candidate); });
 
 // Background change
-document.getElementById('bgColor').onchange = e=>{
-    document.body.style.background = e.target.value;
-};
+document.getElementById('bgColor').onchange = e=>{ document.body.style.background = e.target.value; };
 document.getElementById('bgImage').onchange = e=>{
     var reader = new FileReader();
     reader.onload = function(ev){

@@ -2,57 +2,38 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>TC Chat WhatsApp Style</title>
+<title>TC Chat</title>
 <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 <style>
-/* Basic layout */
-body {margin:0;font-family:Arial,sans-serif;background:#ece5dd;display:flex;overflow:hidden;height:100vh;}
-#drawer {position:fixed;left:-300px;top:0;width:300px;height:100%;background:#075e54;transition:0.3s;padding:20px;box-sizing:border-box;color:#fff;z-index:100;}
-#drawer.open {left:0;}
-#drawer h3 {margin-top:0;font-weight:normal;}
-#toggleDrawer {position:absolute;top:10px;left:10px;padding:10px;background:#25d366;color:#fff;border:none;border-radius:5px;cursor:pointer;z-index:101;font-size:18px;}
-#main {flex:1;display:flex;flex-direction:column;align-items:center;width:100%;padding-top:50px;transition:0.3s;}
-#chat {flex:1;width:90%;max-width:600px;background:#fff;padding:10px;margin:20px 0;border-radius:10px;overflow-y:auto;box-shadow:0 0 5px rgba(0,0,0,0.2);}
-.message {margin:5px 0;padding:10px;border-radius:15px;max-width:70%;word-wrap:break-word;line-height:1.4;}
-.sent {background:#dcf8c6;color:#000;margin-left:auto;}
-.received {background:#fff;color:#000;margin-right:auto;}
-#inputContainer {display:flex;width:90%;max-width:600px;margin-bottom:10px;}
-#msg {flex:1;padding:10px;border-radius:20px;border:1px solid #ccc;outline:none;resize:none;}
-button {padding:10px 20px;margin-left:10px;border:none;border-radius:10px;background:#25d366;color:#fff;cursor:pointer;}
-button:hover {background:#128c7e;}
-video {border-radius:10px;}
-/* Auto resize textarea */
-textarea {overflow:hidden;min-height:40px;line-height:1.4;}
+body{margin:0;font-family:Arial,sans-serif;background:#f2f2f2;display:flex;flex-direction:column;height:100vh;}
+#chat{flex:1;overflow-y:auto;padding:10px;}
+.message{margin:5px 0;padding:8px 12px;border-radius:15px;max-width:70%;word-wrap:break-word;}
+.sent{background:#dcf8c6;margin-left:auto;}
+.received{background:#fff;margin-right:auto;}
+#inputContainer{display:flex;padding:10px;background:#eee;}
+#msg{flex:1;padding:10px;border-radius:20px;border:1px solid #ccc;resize:none;}
+button{margin-left:10px;padding:10px 15px;border:none;border-radius:10px;background:#25d366;color:#fff;cursor:pointer;}
+#drawer{position:fixed;top:0;left:-250px;width:250px;height:100%;background:#075e54;color:#fff;padding:20px;transition:0.3s;box-sizing:border-box;}
+#drawer.open{left:0;}
+#toggleDrawer{position:absolute;top:10px;left:10px;padding:10px;background:#25d366;color:#fff;border:none;border-radius:5px;cursor:pointer;}
+video{width:200px;height:150px;background:#000;margin:5px;border-radius:10px;}
 </style>
 </head>
 <body>
 
 <div id="drawer">
-    <h3>Settings</h3>
-    <div style="margin-bottom:15px;">
-        <label>Nickname:</label>
-        <input type="text" id="nickname" placeholder="Enter nickname"/>
-    </div>
-    <div style="margin-bottom:15px;">
-        <label>Background Color:</label>
-        <input type="color" id="bgColor" value="#ece5dd"/>
-    </div>
-    <div style="margin-bottom:15px;">
-        <label>Background Image:</label>
-        <input type="file" id="bgImage" accept="image/*"/>
-    </div>
-    <button onclick="startCall()" style="margin-top:20px;width:100%;">Call</button>
+<h3>Settings</h3>
+<label>Nickname:</label>
+<input type="text" id="nickname" placeholder="Enter nickname"/><br/><br/>
+<label>Background Color:</label>
+<input type="color" id="bgColor" value="#f2f2f2"/><br/><br/>
+<label>Background Image:</label>
+<input type="file" id="bgImage" accept="image/*"/>
+<br/><br/>
+<button onclick="startCall()">Start Call</button>
 </div>
 
 <button id="toggleDrawer">☰</button>
-
-<div id="main">
-<h2>TC Chat</h2>
-
-<div style="display:flex;justify-content:space-around;margin-bottom:10px;">
-    <video id="localVideo" autoplay muted playsinline style="width:45%;border:1px solid #ccc;"></video>
-    <video id="remoteVideo" autoplay playsinline style="width:45%;border:1px solid #ccc;"></video>
-</div>
 
 <div id="chat"></div>
 
@@ -61,8 +42,102 @@ textarea {overflow:hidden;min-height:40px;line-height:1.4;}
 <input type="file" id="imgInput" accept="image/*"/>
 <button onclick="sendMessage()">Send</button>
 </div>
+
+<div>
+<video id="localVideo" autoplay muted></video>
+<video id="remoteVideo" autoplay></video>
 </div>
 
 <script>
 var socket = io();
-var msgInput = document.get
+var nicknameInput = document.getElementById('nickname');
+var drawer = document.getElementById('drawer');
+var toggleDrawerBtn = document.getElementById('toggleDrawer');
+var chat = document.getElementById('chat');
+var msgInput = document.getElementById('msg');
+var imgInput = document.getElementById('imgInput');
+var localVideo = document.getElementById('localVideo');
+var remoteVideo = document.getElementById('remoteVideo');
+
+toggleDrawerBtn.onclick = ()=>drawer.classList.toggle('open');
+
+// Set nickname
+nicknameInput.onchange = ()=>{
+    socket.emit('set_nickname', nicknameInput.value || "Anonymous");
+};
+
+// Send message
+function sendMessage(){
+    var msg = msgInput.value;
+    if(!msg && !imgInput.files[0]) return;
+    if(imgInput.files[0]){
+        var reader = new FileReader();
+        reader.onload = function(e){
+            socket.emit('message', JSON.stringify({msg: msg, image: e.target.result}));
+        };
+        reader.readAsDataURL(imgInput.files[0]);
+    }else{
+        socket.emit('message', JSON.stringify({msg: msg}));
+    }
+    msgInput.value='';
+    imgInput.value='';
+}
+
+// Enter/Shift+Enter
+msgInput.addEventListener("keydown", function(e){
+    if(e.key==="Enter" && !e.shiftKey){e.preventDefault();sendMessage();}
+});
+
+// Receive messages
+socket.on('message', function(data){
+    var div = document.createElement('div');
+    div.className = (data.nickname===nicknameInput.value) ? 'message sent':'message received';
+    div.innerHTML = `<b>${data.nickname}:</b> ${data.msg}`;
+    if(data.image) div.innerHTML += `<br/><img src="${data.image}" style="max-width:200px;border-radius:10px;margin-top:5px;">`;
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+});
+
+// WebRTC call
+var pc;
+async function startCall(){
+    pc = new RTCPeerConnection();
+    pc.ontrack = e=>remoteVideo.srcObject=e.streams[0];
+    let stream = await navigator.mediaDevices.getUserMedia({video:true,audio:true});
+    localVideo.srcObject=stream;
+    stream.getTracks().forEach(track=>pc.addTrack(track,stream));
+
+    pc.onicecandidate = e=>{
+        if(e.candidate) socket.emit("webrtc_ice_candidate", e.candidate);
+    };
+
+    var offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    socket.emit("webrtc_offer", offer);
+}
+
+socket.on("webrtc_offer", async offer=>{
+    if(!pc){pc = new RTCPeerConnection();}
+    pc.ontrack = e=>remoteVideo.srcObject=e.streams[0];
+    let stream = await navigator.mediaDevices.getUserMedia({video:true,audio:true});
+    localVideo.srcObject=stream;
+    stream.getTracks().forEach(track=>pc.addTrack(track,stream));
+    pc.onicecandidate = e=>{
+        if(e.candidate) socket.emit("webrtc_ice_candidate", e.candidate);
+    };
+    await pc.setRemoteDescription(offer);
+    var answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    socket.emit("webrtc_answer", answer);
+});
+
+socket.on("webrtc_answer", async answer=>{
+    await pc.setRemoteDescription(answer);
+});
+
+socket.on("webrtc_ice_candidate", async candidate=>{
+    if(pc) await pc.addIceCandidate(candidate);
+});
+</script>
+</body>
+</html>

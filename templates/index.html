@@ -18,11 +18,12 @@ button{margin-left:10px;padding:10px 15px;border:none;border-radius:10px;backgro
 #toggleDrawer{position:absolute;top:10px;left:10px;padding:10px;background:#25d366;color:#fff;border:none;border-radius:5px;cursor:pointer;}
 #callOverlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);justify-content:center;align-items:center;flex-direction:column;z-index:200;}
 #callOverlay video{width:45%;margin:10px;border-radius:10px;border:2px solid #fff;}
-#hangupBtn{padding:10px 20px;background:red;color:#fff;border:none;border-radius:10px;margin-top:10px;cursor:pointer;}
+#bottomHangupBtn{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);padding:15px 30px;background:red;color:white;border:none;border-radius:10px;cursor:pointer;z-index:300;}
 </style>
 </head>
 <body>
 
+<!-- Side drawer -->
 <div id="drawer">
 <h3>Settings</h3>
 <label>Nickname:</label>
@@ -37,8 +38,10 @@ button{margin-left:10px;padding:10px 15px;border:none;border-radius:10px;backgro
 
 <button id="toggleDrawer">☰</button>
 
+<!-- Chat display -->
 <div id="chat"></div>
 
+<!-- Message input -->
 <div id="inputContainer">
 <textarea id="msg" placeholder="Type a message..." rows="1"></textarea>
 <input type="file" id="imgInput" accept="image/*"/>
@@ -49,8 +52,10 @@ button{margin-left:10px;padding:10px 15px;border:none;border-radius:10px;backgro
 <div id="callOverlay">
 <video id="localVideo" autoplay muted></video>
 <video id="remoteVideo" autoplay></video>
-<button id="hangupBtn">Hang Up</button>
 </div>
+
+<!-- Bottom Hang Up button -->
+<button id="bottomHangupBtn">Hang Up</button>
 
 <script>
 var socket = io();
@@ -64,12 +69,14 @@ var imgInput = document.getElementById('imgInput');
 var callOverlay = document.getElementById('callOverlay');
 var localVideo = document.getElementById('localVideo');
 var remoteVideo = document.getElementById('remoteVideo');
-var hangupBtn = document.getElementById('hangupBtn');
+var bottomHangupBtn = document.getElementById('bottomHangupBtn');
 
 toggleDrawerBtn.onclick = ()=>drawer.classList.toggle('open');
 
-// Nickname
-nicknameInput.onchange = ()=>{ socket.emit('set_nickname', nicknameInput.value || "Anonymous"); };
+// Set nickname
+nicknameInput.onchange = ()=>{
+    socket.emit('set_nickname', nicknameInput.value || "Anonymous");
+};
 
 // Send message
 function sendMessage(){
@@ -84,10 +91,11 @@ function sendMessage(){
     }else{
         socket.emit('message', JSON.stringify({msg: msg}));
     }
-    msgInput.value=''; imgInput.value='';
+    msgInput.value='';
+    imgInput.value='';
 }
 
-// Enter / Shift+Enter
+// Enter/Shift+Enter
 msgInput.addEventListener("keydown", function(e){
     if(e.key==="Enter" && !e.shiftKey){e.preventDefault();sendMessage();}
 });
@@ -102,7 +110,7 @@ socket.on('message', function(data){
     chat.scrollTop = chat.scrollHeight;
 });
 
-// WebRTC
+// WebRTC call
 var pc;
 async function startCall(){
     callOverlay.style.display="flex";
@@ -113,14 +121,17 @@ async function startCall(){
     localVideo.srcObject=stream;
     stream.getTracks().forEach(track=>pc.addTrack(track,stream));
 
-    pc.onicecandidate = e=>{ if(e.candidate) socket.emit("webrtc_ice_candidate", e.candidate); };
+    pc.onicecandidate = e=>{
+        if(e.candidate) socket.emit("webrtc_ice_candidate", e.candidate);
+    };
 
     var offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
     socket.emit("webrtc_offer", offer);
 }
 
-hangupBtn.onclick = ()=>{
+// Hang Up
+bottomHangupBtn.onclick = ()=>{
     callOverlay.style.display="none";
     if(pc){
         pc.getSenders().forEach(s=>pc.removeTrack(s));
@@ -129,7 +140,7 @@ hangupBtn.onclick = ()=>{
     }
 };
 
-// Socket WebRTC signaling
+// WebRTC signaling
 socket.on("webrtc_offer", async offer=>{
     if(!pc){pc = new RTCPeerConnection(); callOverlay.style.display="flex";}
     pc.ontrack = e=>remoteVideo.srcObject=e.streams[0];
@@ -145,6 +156,19 @@ socket.on("webrtc_offer", async offer=>{
 
 socket.on("webrtc_answer", async answer=>{ if(pc) await pc.setRemoteDescription(answer); });
 socket.on("webrtc_ice_candidate", async candidate=>{ if(pc) await pc.addIceCandidate(candidate); });
+
+// Background change
+document.getElementById('bgColor').onchange = e=>{
+    document.body.style.background = e.target.value;
+};
+document.getElementById('bgImage').onchange = e=>{
+    var reader = new FileReader();
+    reader.onload = function(ev){
+        document.body.style.backgroundImage = `url(${ev.target.result})`;
+        document.body.style.backgroundSize = "cover";
+    };
+    reader.readAsDataURL(e.target.files[0]);
+};
 </script>
 </body>
 </html>

@@ -16,6 +16,7 @@ def index():
 @socketio.on('connect')
 def connect():
     clients[request.sid] = "Anonymous"
+    print(f"{request.sid} connected")
 
 @socketio.on('set_nickname')
 def set_nickname(nickname):
@@ -41,22 +42,4 @@ def handle_message(data):
 
 @socketio.on('disconnect')
 def disconnect():
-    if request.sid in clients:
-        del clients[request.sid]
-
-# WebRTC signaling
-@socketio.on("webrtc_offer")
-def webrtc_offer(offer):
-    emit("webrtc_offer", offer, broadcast=True, include_self=False)
-
-@socketio.on("webrtc_answer")
-def webrtc_answer(answer):
-    emit("webrtc_answer", answer, broadcast=True, include_self=False)
-
-@socketio.on("webrtc_ice_candidate")
-def webrtc_ice(candidate):
-    emit("webrtc_ice_candidate", candidate, broadcast=True, include_self=False)
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    socketio.run(app, host='0.0.0.0', port=port)
+    if

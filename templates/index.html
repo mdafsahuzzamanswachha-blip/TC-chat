@@ -1,28 +1,70 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>TC Chat</title>
-    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+<meta charset="UTF-8">
+<title>TC Chat</title>
+<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+<style>
+body {font-family: Arial, sans-serif; background:#1e1e2f; color:#fff; display:flex; flex-direction:column; align-items:center; height:100vh; margin:0;}
+h2 {margin-top:20px;color:#00d8ff;}
+#chat {flex:1;width:90%;max-width:600px;background:#2a2a40;padding:10px;margin:20px 0;border-radius:10px;overflow-y:auto;}
+.message {background:#3a3a60;margin:5px 0;padding:8px 12px;border-radius:8px;word-wrap:break-word;}
+.message.me {background:#00d8ff;color:#000;text-align:right;}
+#inputContainer {display:flex;width:90%;max-width:600px;}
+#msg {flex:1;padding:10px;border-radius:8px;border:none;outline:none;font-size:16px;resize:none;background:#2a2a40;color:#fff;}
+button {padding:10px 20px;margin-left:10px;border:none;border-radius:8px;background:#00d8ff;color:#000;font-weight:bold;cursor:pointer;}
+button:hover {background:#00b8cc;}
+.timestamp {font-size:10px;color:#aaa;margin-left:5px;}
+</style>
 </head>
 <body>
-    <h2>Welcome to TC Chat</h2>
-    <div id="chat"></div>
-    <input id="msg" type="text" placeholder="Type your message..." />
-    <button onclick="sendMessage()">Send</button>
+<h2>TC Chat</h2>
+<div id="chat"></div>
+<div id="inputContainer">
+<textarea id="msg" placeholder="Type your message..." rows="1"></textarea>
+<button onclick="sendMessage()">Send</button>
+</div>
 
-    <script>
-        var socket = io();
+<script>
+var socket = io();
+var msgInput = document.getElementById("msg");
+var chat = document.getElementById("chat");
 
-        socket.on("message", function(msg){
-            let chat = document.getElementById("chat");
-            chat.innerHTML += "<p>" + msg + "</p>";
-        });
+// Helper function to add message
+function addMessage(msg, me=false){
+    let div = document.createElement("div");
+    div.classList.add("message");
+    if(me) div.classList.add("me");
 
-        function sendMessage(){
-            let msg = document.getElementById("msg").value;
-            socket.send(msg);
-            document.getElementById("msg").value = "";
+    let timestamp = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    div.innerHTML = msg + `<span class="timestamp">${timestamp}</span>`;
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+}
+
+// Receiving message
+socket.on("message", function(msg){
+    addMessage(msg);
+});
+
+// Sending message
+function sendMessage(){
+    let msg = msgInput.value.trim();
+    if(msg === "") return;
+    socket.send(msg);
+    addMessage(msg,true);
+    msgInput.value = "";
+}
+
+// Enter & Shift+Enter
+msgInput.addEventListener("keydown", function(e){
+    if(e.key === "Enter"){
+        if(!e.shiftKey){
+            e.preventDefault();
+            sendMessage();
         }
-    </script>
+    }
+});
+</script>
 </body>
 </html>

@@ -34,7 +34,7 @@ def handle_message(data):
 
     full_msg = f"{nickname}: {msg}"
     if image:
-        full_msg += f" <img src='{image}' style='max-width:200px; display:block;'/>"
+        full_msg += f"<br/><img src='{image}' style='max-width:200px; display:block;margin-top:5px;border-radius:10px;'/>"
 
     for sid in clients:
         emit('message', full_msg, to=sid)

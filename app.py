@@ -5,7 +5,7 @@ import json
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
 clients = {}
 
@@ -16,7 +16,6 @@ def index():
 @socketio.on('connect')
 def connect():
     clients[request.sid] = "Anonymous"
-    print(f"{request.sid} connected")
 
 @socketio.on('set_nickname')
 def set_nickname(nickname):

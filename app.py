@@ -26,25 +26,17 @@ def handle_message(data):
     try:
         data = json.loads(data)
     except:
-        data = {"msg": str(data), "nickname": "Anonymous", "image": ""}
+        data = {"msg": str(data), "image": ""}
 
     msg = data.get("msg", "")
-    nickname = clients.get(request.sid, "Anonymous")
     image = data.get("image", "")
+    nickname = clients.get(request.sid, "Anonymous")
 
-    full_msg = f"{nickname}: {msg}"
-    if image:
-        full_msg += f"<br/><img src='{image}' style='max-width:200px; display:block;margin-top:5px;border-radius:10px;'/>"
+    full_msg = {"nickname": nickname, "msg": msg, "image": image}
 
-    for sid in clients:
-        emit('message', full_msg, to=sid)
+    emit('message', full_msg, broadcast=True)
 
-@socketio.on('disconnect')
-def disconnect():
-    if request.sid in clients:
-        del clients[request.sid]
-
-# WebRTC signaling
+# WebRTC signaling for call
 @socketio.on("webrtc_offer")
 def webrtc_offer(offer):
     emit("webrtc_offer", offer, broadcast=True, include_self=False)
@@ -56,6 +48,11 @@ def webrtc_answer(answer):
 @socketio.on("webrtc_ice_candidate")
 def webrtc_ice(candidate):
     emit("webrtc_ice_candidate", candidate, broadcast=True, include_self=False)
+
+@socketio.on('disconnect')
+def disconnect():
+    if request.sid in clients:
+        del clients[request.sid]
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

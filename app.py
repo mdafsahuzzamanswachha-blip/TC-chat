@@ -4,7 +4,7 @@ import json
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
-socketio = SocketIO(app, cors_allowed_origins="*")  # ⚠️ important
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 clients = {}
 
@@ -15,7 +15,7 @@ def index():
 @socketio.on('connect')
 def connect():
     clients[request.sid] = "Anonymous"
-    print(f"{request.sid} connected")  # debug
+    print(f"{request.sid} connected")
 
 @socketio.on('set_nickname')
 def set_nickname(nickname):
@@ -36,7 +36,6 @@ def handle_message(data):
     if image:
         full_msg += f" <img src='{image}' style='max-width:200px; display:block;'/>"
 
-    # send message to all clients including sender
     for sid in clients:
         emit('message', full_msg, to=sid)
 
@@ -44,6 +43,19 @@ def handle_message(data):
 def disconnect():
     if request.sid in clients:
         del clients[request.sid]
+
+# WebRTC signaling
+@socketio.on("webrtc_offer")
+def webrtc_offer(offer):
+    emit("webrtc_offer", offer, broadcast=True, include_self=False)
+
+@socketio.on("webrtc_answer")
+def webrtc_answer(answer):
+    emit("webrtc_answer", answer, broadcast=True, include_self=False)
+
+@socketio.on("webrtc_ice_candidate")
+def webrtc_ice(candidate):
+    emit("webrtc_ice_candidate", candidate, broadcast=True, include_self=False)
 
 if __name__ == "__main__":
     socketio.run(app, host='0.0.0.0', port=5000, debug=True)

@@ -59,13 +59,14 @@ function sendMessage(){
         let reader = new FileReader();
         reader.onload = function(e){
             let imageData = e.target.result;
-            socket.send({msg: msg, nickname: nickname, image: imageData});
+            // stringify before sending
+            socket.send(JSON.stringify({msg: msg, nickname: nickname, image: imageData}));
             msgInput.value = "";
             imgInput.value = "";
         };
         reader.readAsDataURL(file);
     } else {
-        socket.send({msg: msg, nickname: nickname, image: ""});
+        socket.send(JSON.stringify({msg: msg, nickname: nickname, image: ""}));
         msgInput.value = "";
     }
 }

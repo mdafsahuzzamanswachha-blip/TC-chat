@@ -2,42 +2,51 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>TC Chat</title>
+<title>TC Chat Modern</title>
 <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 <style>
-body {font-family: Arial, sans-serif; background:#1e1e2f; color:#fff; margin:0; display:flex;}
-#drawer {width:250px; background:#2a2a40; padding:10px; height:100vh;}
-#main {flex:1; display:flex; flex-direction:column; align-items:center;}
-#chat {flex:1;width:90%;max-width:600px;background:#2a2a40;padding:10px;margin:20px 0;border-radius:10px;overflow-y:auto;}
-.message {background:#3a3a60;margin:5px 0;padding:8px 12px;border-radius:8px;word-wrap:break-word;}
+body {margin:0;font-family:Arial,sans-serif;background:#f0f2f5;display:flex;overflow:hidden;height:100vh;}
+#drawer {position:fixed;left:-300px;top:0;width:300px;height:100%;background:#2f3640;transition:0.3s;padding:20px;box-sizing:border-box;color:#fff;z-index:100;}
+#drawer.open {left:0;}
+#drawer h3 {margin-top:0;}
+#toggleDrawer {position:absolute;top:10px;left:10px;padding:10px;background:#00d8ff;color:#000;border:none;border-radius:5px;cursor:pointer;z-index:101;}
+#main {flex:1;display:flex;flex-direction:column;align-items:center;width:100%;padding-top:50px;transition:0.3s;}
+#chat {flex:1;width:90%;max-width:600px;background:#fff;padding:10px;margin:20px 0;border-radius:10px;overflow-y:auto;box-shadow:0 0 10px rgba(0,0,0,0.2);}
+.message {margin:5px 0;padding:10px;border-radius:15px;max-width:70%;word-wrap:break-word;}
+.sent {background:#00d8ff;color:#000;margin-left:auto;}
+.received {background:#e0e0e0;color:#000;margin-right:auto;}
 #inputContainer {display:flex;width:90%;max-width:600px;margin-bottom:10px;}
-#msg {flex:1;padding:10px;border-radius:8px;border:none;outline:none;font-size:16px;resize:none;background:#2a2a40;color:#fff;}
-button {padding:10px 20px;margin-left:10px;border:none;border-radius:8px;background:#00d8ff;color:#000;font-weight:bold;cursor:pointer;}
+#msg {flex:1;padding:10px;border-radius:20px;border:1px solid #ccc;outline:none;resize:none;}
+button {padding:10px 20px;margin-left:10px;border:none;border-radius:10px;background:#00d8ff;color:#000;cursor:pointer;}
 button:hover {background:#00b8cc;}
 </style>
 </head>
 <body>
+
 <div id="drawer">
     <h3>Options</h3>
-    <div>
+    <div style="margin-bottom:15px;">
+        <label>Nickname:</label>
+        <input type="text" id="nickname" placeholder="Enter nickname"/>
+    </div>
+    <div style="margin-bottom:15px;">
         <label>Background:</label>
-        <input type="color" id="bgColor" value="#1e1e2f"/>
+        <input type="color" id="bgColor" value="#f0f2f5"/>
     </div>
-    <div style="margin-top:20px;">
-        <button onclick="startCall()">Call</button>
+    <div style="margin-bottom:15px;">
+        <label>Background Image:</label>
+        <input type="file" id="bgImage" accept="image/*"/>
     </div>
+    <button onclick="startCall()" style="margin-top:20px;width:100%;">Call</button>
 </div>
+
+<button id="toggleDrawer">☰</button>
 
 <div id="main">
 <h2>TC Chat</h2>
 <div id="chat"></div>
-
-<div>
-<input id="nickname" type="text" placeholder="Enter nickname" />
-</div>
-
 <div id="inputContainer">
-<textarea id="msg" placeholder="Type your message..." rows="1"></textarea>
+<textarea id="msg" placeholder="Type a message..." rows="1"></textarea>
 <input type="file" id="imgInput" accept="image/*"/>
 <button onclick="sendMessage()">Send</button>
 </div>
@@ -49,48 +58,74 @@ var msgInput = document.getElementById("msg");
 var chat = document.getElementById("chat");
 var nicknameInput = document.getElementById("nickname");
 var imgInput = document.getElementById("imgInput");
+var main = document.getElementById("main");
+var drawer = document.getElementById("drawer");
+var toggleDrawerBtn = document.getElementById("toggleDrawer");
 
-// Drawer: background change
+// Drawer toggle
+toggleDrawerBtn.onclick = function(){
+    drawer.classList.toggle("open");
+}
+
+// Background color change
 document.getElementById("bgColor").addEventListener("input", function(e){
-    document.getElementById("main").style.background = e.target.value;
+    main.style.background = e.target.value;
 });
 
-// Set nickname on input blur
+// Background image
+document.getElementById("bgImage").addEventListener("change", function(e){
+    var file = e.target.files[0];
+    if(file){
+        var reader = new FileReader();
+        reader.onload = function(ev){
+            main.style.background = `url(${ev.target.result}) center/cover no-repeat`;
+        }
+        reader.readAsDataURL(file);
+    }
+});
+
+// Set nickname on blur
 nicknameInput.addEventListener("blur", function(){
     let nick = nicknameInput.value.trim() || "Anonymous";
     socket.emit("set_nickname", nick);
 });
 
-// Receiving message
+// Receiving messages
 socket.on("message", function(msg){
     let div = document.createElement("div");
     div.classList.add("message");
+    if(msg.startsWith(nicknameInput.value+":")){
+        div.classList.add("sent");
+    } else {
+        div.classList.add("received");
+    }
     div.innerHTML = msg;
     chat.appendChild(div);
     chat.scrollTop = chat.scrollHeight;
 });
 
-// Sending message
+// Send message
 function sendMessage(){
     let msg = msgInput.value.trim();
     if(msg === "") return;
-
+    let nickname = nicknameInput.value.trim() || "Anonymous";
     let file = imgInput.files[0];
+
     if(file){
         let reader = new FileReader();
         reader.onload = function(e){
-            socket.send(JSON.stringify({msg: msg, image: e.target.result}));
+            socket.send(JSON.stringify({msg: msg, nickname: nickname, image: e.target.result}));
             msgInput.value = "";
             imgInput.value = "";
-        };
+        }
         reader.readAsDataURL(file);
     } else {
-        socket.send(JSON.stringify({msg: msg, image: ""}));
+        socket.send(JSON.stringify({msg: msg, nickname: nickname, image: ""}));
         msgInput.value = "";
     }
 }
 
-// Enter & Shift+Enter
+// Enter / Shift+Enter
 msgInput.addEventListener("keydown", function(e){
     if(e.key === "Enter"){
         if(!e.shiftKey){
@@ -100,9 +135,9 @@ msgInput.addEventListener("keydown", function(e){
     }
 });
 
-// Call button placeholder
+// Call placeholder
 function startCall(){
-    alert("Call feature will be implemented here");
+    alert("Call feature will be implemented later");
 }
 </script>
 </body>

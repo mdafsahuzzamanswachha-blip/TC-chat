@@ -1,10 +1,10 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit
 import json
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
-socketio = SocketIO(app)
+socketio = SocketIO(app, cors_allowed_origins="*")  # ⚠️ important
 
 clients = {}
 
@@ -15,6 +15,7 @@ def index():
 @socketio.on('connect')
 def connect():
     clients[request.sid] = "Anonymous"
+    print(f"{request.sid} connected")  # debug
 
 @socketio.on('set_nickname')
 def set_nickname(nickname):
@@ -35,7 +36,7 @@ def handle_message(data):
     if image:
         full_msg += f" <img src='{image}' style='max-width:200px; display:block;'/>"
 
-    # Broadcast to all including sender
+    # send message to all clients including sender
     for sid in clients:
         emit('message', full_msg, to=sid)
 
@@ -45,4 +46,4 @@ def disconnect():
         del clients[request.sid]
 
 if __name__ == "__main__":
-    socketio.run(app, host='0.0.0.0', port=5000)
+    socketio.run(app, host='0.0.0.0', port=5000, debug=True)

@@ -1,183 +1,607 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="bn">
 <head>
-<meta charset="UTF-8">
-<title>TC Chat</title>
-<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
-<style>
-body{margin:0;font-family:Arial,sans-serif;background:#f2f2f2;display:flex;flex-direction:column;height:100vh;}
-#chat{flex:1;overflow-y:auto;padding:10px;}
-.message{margin:5px 0;padding:8px 12px;border-radius:15px;max-width:70%;word-wrap:break-word;}
-.sent{background:#dcf8c6;margin-left:auto;}
-.received{background:#fff;margin-right:auto;}
-#inputContainer{display:flex;padding:10px;background:#eee;}
-#msg{flex:1;padding:10px;border-radius:20px;border:1px solid #ccc;resize:none;}
-button{margin-left:10px;padding:10px 15px;border:none;border-radius:10px;background:#25d366;color:#fff;cursor:pointer;}
-#drawer{position:fixed;top:0;left:-250px;width:250px;height:100%;background:#075e54;color:#fff;padding:20px;transition:0.3s;box-sizing:border-box;}
-#drawer.open{left:0;}
-#toggleDrawer{position:absolute;top:10px;left:10px;padding:10px;background:#25d366;color:#fff;border:none;border-radius:5px;cursor:pointer;}
-#callOverlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);justify-content:center;align-items:center;flex-direction:column;z-index:200;}
-#callOverlay video{width:45%;margin:10px;border-radius:10px;border:2px solid #fff;}
-#bottomHangupBtn{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);padding:15px 30px;background:red;color:white;border:none;border-radius:10px;cursor:pointer;z-index:300;display:none;}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TC-Chat App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .auth-container {
+            width: 90%;
+            max-width: 400px;
+            background-color: white;
+            padding: 2.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .chat-container {
+            width: 100%;
+            max-width: 1000px;
+            height: 100vh;
+            background-color: #f0f2f5;
+            display: flex;
+            flex-direction: column;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        @media (min-width: 768px) {
+            .chat-container {
+                height: 95vh;
+                margin-top: 10px;
+                margin-bottom: 10px;
+            }
+        }
+
+        .chat-header {
+            background-color: #0084ff;
+            color: white;
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .chat-messages {
+            flex-grow: 1;
+            padding: 1.5rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            background-image: var(--bg-image, none);
+            background-size: cover;
+            background-position: center;
+            transition: background-image 0.5s ease-in-out;
+        }
+
+        .message {
+            display: flex;
+            flex-direction: column;
+            max-width: 70%;
+            padding: 0.75rem 1rem;
+            border-radius: 1.5rem;
+            word-wrap: break-word;
+            line-height: 1.5;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        .message.sent {
+            align-self: flex-end;
+            background-color: #dcf8c6;
+            color: #1c1c1c;
+            border-bottom-right-radius: 0;
+        }
+
+        .message.received {
+            align-self: flex-start;
+            background-color: #ffffff;
+            color: #1c1c1c;
+            border-bottom-left-radius: 0;
+        }
+
+        .message .username {
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            color: #007bff;
+        }
+
+        .message.received .username {
+            color: #6a6a6a;
+        }
+
+        .message .image-content img {
+            max-width: 100%;
+            border-radius: 1rem;
+            margin-top: 0.5rem;
+            cursor: pointer;
+        }
+
+        .chat-footer {
+            background-color: #ffffff;
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .chat-footer button {
+            background-color: #0084ff;
+            color: white;
+            border-radius: 50%;
+            padding: 0.75rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: transform 0.2s;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .chat-footer button:hover {
+            transform: scale(1.1);
+        }
+
+        .chat-footer textarea {
+            flex-grow: 1;
+            margin: 0 1rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            padding: 0.75rem 1rem;
+            resize: none;
+            max-height: 100px;
+            overflow-y: auto;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+            position: relative;
+        }
+
+        .modal-content img {
+            max-width: 100%;
+            border-radius: 12px;
+        }
+
+        .call-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            position: absolute;
+            bottom: 1rem;
+            width: 100%;
+        }
+        .call-buttons button {
+            background-color: #dc3545;
+            color: white;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+    </style>
 </head>
-<body>
+<body class="bg-[#f0f2f5]">
 
-<!-- Side drawer -->
-<div id="drawer">
-<h3>Settings</h3>
-<label>Nickname:</label>
-<input type="text" id="nickname" placeholder="Enter nickname"/><br/><br/>
-<label>Background Color:</label>
-<input type="color" id="bgColor" value="#f2f2f2"/><br/><br/>
-<label>Background Image:</label>
-<input type="file" id="bgImage" accept="image/*"/>
-<br/><br/>
-<button onclick="startCall()">Start Call</button>
-</div>
+    <!-- Auth UI -->
+    <div id="auth-ui" class="auth-container">
+        <h1 class="text-3xl font-bold text-gray-800 mb-6">TC-Chat App</h1>
+        <p class="text-gray-600 mb-6">লগইন বা সাইন আপ করে চ্যাট শুরু করুন।</p>
+        <div class="mb-4">
+            <input type="email" id="email-input" class="w-full px-4 py-3 rounded-lg border-2 border-gray-200 focus:outline-none focus:border-blue-500 transition duration-200" placeholder="ইমেল">
+        </div>
+        <div class="mb-6">
+            <input type="password" id="password-input" class="w-full px-4 py-3 rounded-lg border-2 border-gray-200 focus:outline-none focus:border-blue-500 transition duration-200" placeholder="পাসওয়ার্ড">
+        </div>
+        <button id="login-button" class="w-full bg-blue-500 text-white font-semibold py-3 rounded-lg hover:bg-blue-600 transition duration-200 mb-4">লগইন</button>
+        <button id="signup-button" class="w-full bg-green-500 text-white font-semibold py-3 rounded-lg hover:bg-green-600 transition duration-200">সাইন আপ</button>
+        <div id="auth-message" class="mt-4 text-sm text-red-500"></div>
+    </div>
 
-<button id="toggleDrawer">☰</button>
+    <!-- Main Chat UI -->
+    <div id="chat-ui" class="chat-container hidden">
+        <div class="chat-header">
+            <h1 class="text-xl font-bold">TC-Chat App</h1>
+            <div class="flex items-center space-x-4">
+                <span id="user-display" class="text-white font-medium"></span>
+                <button id="video-call-btn" class="text-white hover:text-gray-200 transition duration-200">
+                    <i class="fas fa-video text-xl"></i>
+                </button>
+                <button id="logout-button" class="bg-red-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-600 transition duration-200">লগ আউট</button>
+            </div>
+        </div>
+        <div class="chat-messages" id="chat-messages">
+            <div id="system-message" class="text-center text-gray-500 italic text-sm"></div>
+        </div>
+        <div class="chat-footer">
+            <button id="image-upload-btn" class="w-12 h-12">
+                <i class="fas fa-image"></i>
+            </button>
+            <input type="file" id="image-input" class="hidden" accept="image/*">
+            <textarea id="message-input" class="rounded-full" placeholder="মেসেজ লিখুন..." rows="1"></textarea>
+            <button id="send-button" class="w-12 h-12">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </div>
+    </div>
 
-<!-- Chat display -->
-<div id="chat"></div>
+    <!-- Video Call Modal -->
+    <div id="video-call-modal" class="modal-overlay hidden">
+        <div class="modal-content text-center">
+            <h2 class="text-2xl font-bold mb-4">ভিডিও কল</h2>
+            <div class="relative w-full aspect-video bg-gray-900 rounded-lg overflow-hidden mb-4">
+                <video id="local-video" class="absolute inset-0 w-full h-full object-cover rounded-lg z-10" autoplay muted></video>
+                <video id="remote-video" class="absolute inset-0 w-full h-full object-cover rounded-lg z-20" autoplay></video>
+            </div>
+            <div class="call-buttons">
+                <button id="end-call-btn" class="bg-red-500 text-white w-14 h-14 rounded-full">
+                    <i class="fas fa-phone-slash text-xl"></i>
+                </button>
+            </div>
+            <p id="call-status" class="mt-4 text-lg font-medium text-gray-700">কল শুরু হচ্ছে...</p>
+        </div>
+    </div>
 
-<!-- Message input -->
-<div id="inputContainer">
-<textarea id="msg" placeholder="Type a message..." rows="1"></textarea>
-<input type="file" id="imgInput" accept="image/*"/>
-<button onclick="sendMessage()">Send</button>
-</div>
+    <!-- Image Preview Modal -->
+    <div id="image-preview-modal" class="modal-overlay hidden">
+        <div class="modal-content text-center">
+            <img id="preview-image" src="" alt="Image Preview">
+            <p class="mt-4 text-gray-400">ছবিটি দেখতে ক্লিক করুন</p>
+        </div>
+    </div>
 
-<!-- Call overlay -->
-<div id="callOverlay">
-<video id="localVideo" autoplay muted></video>
-<video id="remoteVideo" autoplay></video>
-</div>
-
-<!-- Bottom Hang Up button -->
-<button id="bottomHangupBtn">Hang Up</button>
-
-<script>
-var socket = io();
-var nicknameInput = document.getElementById('nickname');
-var drawer = document.getElementById('drawer');
-var toggleDrawerBtn = document.getElementById('toggleDrawer');
-var chat = document.getElementById('chat');
-var msgInput = document.getElementById('msg');
-var imgInput = document.getElementById('imgInput');
-
-var callOverlay = document.getElementById('callOverlay');
-var localVideo = document.getElementById('localVideo');
-var remoteVideo = document.getElementById('remoteVideo');
-var bottomHangupBtn = document.getElementById('bottomHangupBtn');
-
-toggleDrawerBtn.onclick = ()=>drawer.classList.toggle('open');
-
-// Nickname
-nicknameInput.onchange = ()=>{
-    socket.emit('set_nickname', nicknameInput.value || "Anonymous");
-};
-
-// Send message
-function sendMessage(){
-    var msg = msgInput.value;
-    if(!msg && !imgInput.files[0]) return;
-    if(imgInput.files[0]){
-        var reader = new FileReader();
-        reader.onload = function(e){
-            socket.emit('message', JSON.stringify({msg: msg, image: e.target.result}));
+    <script type="module">
+        const firebaseConfig = {
+            // PLEASE ADD YOUR OWN FIREBASE CONFIG HERE
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
         };
-        reader.readAsDataURL(imgInput.files[0]);
-    }else{
-        socket.emit('message', JSON.stringify({msg: msg}));
-    }
-    msgInput.value='';
-    imgInput.value='';
-}
 
-// Enter / Shift+Enter
-msgInput.addEventListener("keydown", function(e){
-    if(e.key==="Enter" && !e.shiftKey){e.preventDefault();sendMessage();}
-});
+        const app = firebase.initializeApp(firebaseConfig);
+        const auth = firebase.getAuth(app);
+        const db = firebase.getFirestore(app);
 
-// Receive messages
-socket.on('message', function(data){
-    var div = document.createElement('div');
-    div.className = (data.nickname===nicknameInput.value) ? 'message sent':'message received';
-    div.innerHTML = `<b>${data.nickname}:</b> ${data.msg}`;
-    if(data.image) div.innerHTML += `<br/><img src="${data.image}" style="max-width:200px;border-radius:10px;margin-top:5px;">`;
-    chat.appendChild(div);
-    chat.scrollTop = chat.scrollHeight;
-});
+        const socket = io();
+        let currentUserId = null;
+        let localStream = null;
+        let peerConnection = null;
 
-// WebRTC
-var pc;
-var localStream;
+        // UI elements
+        const authUI = document.getElementById('auth-ui');
+        const chatUI = document.getElementById('chat-ui');
+        const emailInput = document.getElementById('email-input');
+        const passwordInput = document.getElementById('password-input');
+        const loginBtn = document.getElementById('login-button');
+        const signupBtn = document.getElementById('signup-button');
+        const authMessage = document.getElementById('auth-message');
+        const userDisplay = document.getElementById('user-display');
+        const chatMessages = document.getElementById('chat-messages');
+        const messageInput = document.getElementById('message-input');
+        const sendBtn = document.getElementById('send-button');
+        const imageUploadBtn = document.getElementById('image-upload-btn');
+        const imageInput = document.getElementById('image-input');
+        const logoutBtn = document.getElementById('logout-button');
+        const videoCallBtn = document.getElementById('video-call-btn');
+        const endCallBtn = document.getElementById('end-call-btn');
+        const videoCallModal = document.getElementById('video-call-modal');
+        const localVideo = document.getElementById('local-video');
+        const remoteVideo = document.getElementById('remote-video');
+        const callStatus = document.getElementById('call-status');
+        const imagePreviewModal = document.getElementById('image-preview-modal');
+        const previewImage = document.getElementById('preview-image');
+        const imageModalOverlay = document.getElementById('image-preview-modal');
 
-async function startCall(){
-    callOverlay.style.display="flex";
-    bottomHangupBtn.style.display="block"; // show only when call starts
+        // Firestore collections
+        const messagesCollection = firebase.collection(db, "messages");
 
-    pc = new RTCPeerConnection();
-    pc.ontrack = e=>remoteVideo.srcObject=e.streams[0];
+        // Firebase Auth
+        loginBtn.addEventListener('click', async () => {
+            try {
+                await firebase.signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value);
+            } catch (error) {
+                authMessage.textContent = error.message;
+            }
+        });
 
-    localStream = await navigator.mediaDevices.getUserMedia({video:true,audio:true});
-    localVideo.srcObject = localStream;
-    localStream.getTracks().forEach(track=>pc.addTrack(track, localStream));
+        signupBtn.addEventListener('click', async () => {
+            try {
+                await firebase.createUserWithEmailAndPassword(auth, emailInput.value, passwordInput.value);
+            } catch (error) {
+                authMessage.textContent = error.message;
+            }
+        });
 
-    pc.onicecandidate = e=>{ if(e.candidate) socket.emit("webrtc_ice_candidate", e.candidate); };
+        logoutBtn.addEventListener('click', async () => {
+            await firebase.signOut(auth);
+            // After logout, clear UI and show auth screen
+            chatUI.classList.add('hidden');
+            authUI.classList.remove('hidden');
+            chatMessages.innerHTML = '';
+        });
 
-    var offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    socket.emit("webrtc_offer", offer);
-}
+        // Auth state listener
+        firebase.onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUserId = user.uid;
+                userDisplay.textContent = `(${user.email})`;
+                authUI.classList.add('hidden');
+                chatUI.classList.remove('hidden');
+                joinChatRoom(currentUserId);
+                
+                // Load past messages
+                loadMessages();
+            } else {
+                currentUserId = null;
+                chatUI.classList.add('hidden');
+                authUI.classList.remove('hidden');
+            }
+        });
 
-// Hang Up
-bottomHangupBtn.onclick = ()=>{
-    callOverlay.style.display="none";
-    bottomHangupBtn.style.display="none";
+        // Socket.IO
+        function joinChatRoom(username) {
+            socket.emit('join', { username: username, room: 'main-room' });
+        }
 
-    if(pc){
-        pc.getSenders().forEach(s=>pc.removeTrack(s));
-        pc.close();
-        pc = null;
-    }
-    if(localStream){
-        localStream.getTracks().forEach(track=>track.stop());
-        localStream = null;
-    }
-};
+        socket.on('message', (data) => {
+            displayMessage(data);
+        });
 
-// WebRTC signaling
-socket.on("webrtc_offer", async offer=>{
-    if(!pc){pc = new RTCPeerConnection(); callOverlay.style.display="flex"; bottomHangupBtn.style.display="block";}
-    pc.ontrack = e=>remoteVideo.srcObject=e.streams[0];
+        socket.on('status', (data) => {
+            const systemMessage = document.getElementById('system-message');
+            systemMessage.textContent = data.msg;
+        });
+        
+        // Firestore
+        async function loadMessages() {
+            chatMessages.innerHTML = ''; // Clear existing messages
+            const q = firebase.query(messagesCollection, firebase.orderBy("timestamp"));
+            
+            // Listen for real-time updates
+            firebase.onSnapshot(q, (snapshot) => {
+                snapshot.docChanges().forEach((change) => {
+                    if (change.type === "added") {
+                        displayMessage(change.doc.data());
+                    }
+                });
+            });
+        }
+        
+        async function saveMessage(messageData) {
+            await firebase.addDoc(messagesCollection, {
+                ...messageData,
+                timestamp: firebase.serverTimestamp(),
+            });
+        }
 
-    localStream = await navigator.mediaDevices.getUserMedia({video:true,audio:true});
-    localVideo.srcObject = localStream;
-    localStream.getTracks().forEach(track=>pc.addTrack(track,localStream));
+        // Message sending
+        sendBtn.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
 
-    pc.onicecandidate = e=>{ if(e.candidate) socket.emit("webrtc_ice_candidate", e.candidate); };
+        async function sendMessage() {
+            const messageText = messageInput.value.trim();
+            if (messageText !== '') {
+                const message = {
+                    senderId: currentUserId,
+                    text: messageText,
+                    senderEmail: auth.currentUser.email,
+                    type: 'text',
+                    room: 'main-room'
+                };
+                await saveMessage(message);
+                messageInput.value = '';
+                socket.emit('message', message);
+            }
+        }
 
-    await pc.setRemoteDescription(offer);
-    var answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-    socket.emit("webrtc_answer", answer);
-});
+        function displayMessage(data) {
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('message');
+            
+            if (data.senderId === currentUserId) {
+                messageElement.classList.add('sent');
+            } else {
+                messageElement.classList.add('received');
+            }
 
-socket.on("webrtc_answer", async answer=>{ if(pc) await pc.setRemoteDescription(answer); });
-socket.on("webrtc_ice_candidate", async candidate=>{ if(pc) await pc.addIceCandidate(candidate); });
+            const senderEmail = data.senderEmail || 'Unknown';
+            const senderName = senderEmail.split('@')[0];
+            const usernameSpan = document.createElement('span');
+            usernameSpan.classList.add('username');
+            usernameSpan.textContent = senderName;
+            messageElement.appendChild(usernameSpan);
 
-// Background change
-document.getElementById('bgColor').onchange = e=>{ document.body.style.background = e.target.value; };
-document.getElementById('bgImage').onchange = e=>{
-    var reader = new FileReader();
-    reader.onload = function(ev){
-        document.body.style.backgroundImage = `url(${ev.target.result})`;
-        document.body.style.backgroundSize = "cover";
-    };
-    reader.readAsDataURL(e.target.files[0]);
-};
-</script>
+            if (data.type === 'text') {
+                const textParagraph = document.createElement('p');
+                textParagraph.textContent = data.text;
+                messageElement.appendChild(textParagraph);
+            } else if (data.type === 'image' && data.imageUrl) {
+                const imageContainer = document.createElement('div');
+                imageContainer.classList.add('image-content');
+                const image = document.createElement('img');
+                image.src = data.imageUrl;
+                image.alt = "Sent image";
+                imageContainer.appendChild(image);
+                messageElement.appendChild(imageContainer);
+
+                image.addEventListener('click', () => {
+                    previewImage.src = image.src;
+                    imagePreviewModal.classList.remove('hidden');
+                });
+            }
+
+            chatMessages.appendChild(messageElement);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        imagePreviewModal.addEventListener('click', () => {
+            imagePreviewModal.classList.add('hidden');
+        });
+
+        // Image sending
+        imageUploadBtn.addEventListener('click', () => {
+            imageInput.click();
+        });
+
+        imageInput.addEventListener('change', async (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const imageUrl = e.target.result;
+                const message = {
+                    senderId: currentUserId,
+                    senderEmail: auth.currentUser.email,
+                    type: 'image',
+                    imageUrl: imageUrl,
+                    room: 'main-room'
+                };
+                await saveMessage(message);
+                socket.emit('message', message);
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // WebRTC for Video Call
+        const servers = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+            ]
+        };
+
+        videoCallBtn.addEventListener('click', async () => {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                localVideo.srcObject = localStream;
+                videoCallModal.classList.remove('hidden');
+                callStatus.textContent = 'কল হচ্ছে...';
+
+                // Initialize peer connection
+                peerConnection = new RTCPeerConnection(servers);
+                localStream.getTracks().forEach(track => {
+                    peerConnection.addTrack(track, localStream);
+                });
+
+                peerConnection.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        socket.emit('signal', {
+                            'type': 'candidate',
+                            'candidate': event.candidate,
+                            'room': 'main-room'
+                        });
+                    }
+                };
+
+                peerConnection.ontrack = (event) => {
+                    remoteVideo.srcObject = event.streams[0];
+                };
+
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+                socket.emit('signal', {
+                    'type': 'offer',
+                    'offer': offer,
+                    'room': 'main-room'
+                });
+
+            } catch (error) {
+                console.error("Error accessing media devices.", error);
+                callStatus.textContent = 'ভিডিও কল শুরু করা সম্ভব নয়।';
+                setTimeout(() => videoCallModal.classList.add('hidden'), 3000);
+            }
+        });
+
+        socket.on('signal', async (data) => {
+            if (data.type === 'offer') {
+                if (!peerConnection) {
+                    // Answer the call
+                    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                    localVideo.srcObject = localStream;
+                    videoCallModal.classList.remove('hidden');
+                    callStatus.textContent = 'কল হচ্ছে...';
+
+                    peerConnection = new RTCPeerConnection(servers);
+                    localStream.getTracks().forEach(track => {
+                        peerConnection.addTrack(track, localStream);
+                    });
+
+                    peerConnection.onicecandidate = (event) => {
+                        if (event.candidate) {
+                            socket.emit('signal', {
+                                'type': 'candidate',
+                                'candidate': event.candidate,
+                                'room': 'main-room'
+                            });
+                        }
+                    };
+
+                    peerConnection.ontrack = (event) => {
+                        remoteVideo.srcObject = event.streams[0];
+                    };
+                }
+
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                socket.emit('signal', {
+                    'type': 'answer',
+                    'answer': answer,
+                    'room': 'main-room'
+                });
+            } else if (data.type === 'answer') {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+            } else if (data.type === 'candidate') {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+            }
+        });
+
+        endCallBtn.addEventListener('click', () => {
+            endCall();
+        });
+
+        function endCall() {
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+            localVideo.srcObject = null;
+            remoteVideo.srcObject = null;
+            videoCallModal.classList.add('hidden');
+            callStatus.textContent = '';
+        }
+
+    </script>
 </body>
 </html>

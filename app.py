@@ -1,59 +1,46 @@
-import os
 from flask import Flask, render_template, request
-from flask_socketio import SocketIO, emit
-import json
+from flask_socketio import SocketIO, emit, join_room, leave_room
+import eventlet
+import os
 
-app = Flask(__name__)
-app.config['SECRET_KEY'] = 'secret!'
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
+# Create a Flask web application instance.
+app = Flask(__name__, template_folder='templates')
+# Set a secret key for the application.
+app.config['SECRET_KEY'] = 'my_secret_key'
+# Initialize SocketIO for real-time communication.
+socketio = SocketIO(app, async_mode='eventlet')
 
-clients = {}
-
+# Main page route.
 @app.route('/')
 def index():
     return render_template('index.html')
 
+# This event is triggered when a new client connects.
 @socketio.on('connect')
-def connect():
-    clients[request.sid] = "Anonymous"
+def handle_connect():
+    print('Client connected')
 
-@socketio.on('set_nickname')
-def set_nickname(nickname):
-    clients[request.sid] = nickname
+# Handles new users joining the chat room.
+@socketio.on('join')
+def on_join(data):
+    username = data['username']
+    room = data['room']
+    join_room(room)
+    emit('status', {'msg': f'{username} has joined the room.', 'type': 'system'}, room=room)
 
+# Handles incoming chat messages and broadcasts them.
 @socketio.on('message')
 def handle_message(data):
-    try:
-        data = json.loads(data)
-    except:
-        data = {"msg": str(data), "image": ""}
+    print('Received message: ' + str(data))
+    room = data['room']
+    emit('message', data, room=room)
 
-    msg = data.get("msg", "")
-    image = data.get("image", "")
-    nickname = clients.get(request.sid, "Anonymous")
+# Handles WebRTC signaling for video calls.
+@socketio.on('signal')
+def handle_signal(data):
+    emit('signal', data, room=data['room'], skip_sid=request.sid)
 
-    full_msg = {"nickname": nickname, "msg": msg, "image": image}
-
-    emit('message', full_msg, broadcast=True)
-
-# WebRTC signaling for call
-@socketio.on("webrtc_offer")
-def webrtc_offer(offer):
-    emit("webrtc_offer", offer, broadcast=True, include_self=False)
-
-@socketio.on("webrtc_answer")
-def webrtc_answer(answer):
-    emit("webrtc_answer", answer, broadcast=True, include_self=False)
-
-@socketio.on("webrtc_ice_candidate")
-def webrtc_ice(candidate):
-    emit("webrtc_ice_candidate", candidate, broadcast=True, include_self=False)
-
-@socketio.on('disconnect')
-def disconnect():
-    if request.sid in clients:
-        del clients[request.sid]
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    socketio.run(app, host='0.0.0.0', port=port)
+# Main entry point to run the application.
+if __name__ == '__main__':
+    eventlet.monkey_patch()
+    socketio.run(app, debug=True, port=int(os.environ.get('PORT', 5000)))
